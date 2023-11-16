@@ -18,12 +18,12 @@ class TokenController {
 
       const user = await User.findOne({ email: email });
       if (!user)
-        return res
-          .status(400)
-          .json({ msg: 'Email inválido ou Usuário não existe' });
+        return res.status(400).json({
+          errors: ['Email inválido ou Usuário não existe'],
+        });
 
       const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) return res.status(400).json({ msg: 'Senha inválida' });
+      if (!isMatch) return res.status(400).json({ errors: ['Senha inválida'] });
 
       const token = jwt.sign({ id: user._id }, process.env.TOKEN_SECRET, {
         expiresIn: process.env.TOKEN_EXPIRATION,
@@ -32,7 +32,7 @@ class TokenController {
       return res.status(200).json({ token, user });
     } catch (err) {
       return res.status(500).json({
-        error: err.message,
+        errors: [err.message],
       });
     }
   }

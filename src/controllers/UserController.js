@@ -1,5 +1,6 @@
 import multer from 'multer';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 import multerConfig from '../config/multerConfig';
 import User from '../models/User';
@@ -18,7 +19,9 @@ class UserController {
       const user = await User.findById(id);
       return res.status(200).json(user);
     } catch (err) {
-      return res.status(404).json({ message: err.message });
+      return res.status(404).json({
+        errors: [err.message],
+      });
     }
   }
 
@@ -49,56 +52,87 @@ class UserController {
       );
       return res.status(200).json(formattedFriends);
     } catch (err) {
-      return res.status(404).json({ message: err.message });
+      return res.status(404).json({
+        errors: [err.message],
+      });
     }
   }
 
   /**
    * Create a new User
    *
-   * @returns {Object} - The created User object
+   * @returns {Object} - The created User and Token
    */
-  store(req, res) {
+  async store(req, res) {
+    try {
+      const {
+        firstName,
+        lastName,
+        email,
+        password,
+        friends,
+        location,
+        occupation,
+      } = req.body;
+
+      const salt = await bcrypt.genSalt();
+      const passwordHash = await bcrypt.hash(password, salt);
+
+      const newUser = new User({
+        firstName,
+        lastName,
+        email,
+        password: passwordHash,
+        picturePath: '',
+        friends,
+        location,
+        occupation,
+        viewedProfile: 0,
+        impressions: 0,
+      });
+
+      const user = await newUser.save(); // Create a new User
+
+      // Create a new token for user authentication (login)
+      const token = jwt.sign({ id: user._id }, process.env.TOKEN_SECRET, {
+        expiresIn: process.env.TOKEN_EXPIRATION,
+      });
+      delete user.password;
+      return res.status(201).json({ token, user });
+    } catch (err) {
+      return res.status(500).json({
+        errors: [err.message],
+      });
+    }
+  }
+
+  /**
+   * Update the User picture
+   *
+   * @returns {Object} - The User object
+   */
+  updatePicture(req, res) {
     // Use the 'upload' middleware to handle file uploads asynchronously
     return upload(req, res, async (err) => {
       // Check for and handle any errors that may occur during file upload
       if (err) {
-        return res.status(400).json({ message: err.message });
+        return res.status(400).json({
+          errors: [err.message],
+        });
       }
 
       try {
         const { filename } = req.file;
-        const {
-          firstName,
-          lastName,
-          email,
-          password,
-          friends,
-          location,
-          occupation,
-        } = req.body;
+        const user = await User.findById(req.userId); // req.userId from middleware loginRequired
 
-        const salt = await bcrypt.genSalt();
-        const passwordHash = await bcrypt.hash(password, salt);
+        user.picturePath = filename;
+        await user.save();
 
-        const newUser = new User({
-          firstName,
-          lastName,
-          email,
-          password: passwordHash,
-          picturePath: filename,
-          friends,
-          location,
-          occupation,
-          viewedProfile: Math.floor(Math.random() * 10000),
-          impressions: Math.floor(Math.random() * 10000),
-        });
-
-        const savedUser = await newUser.save();
-        return res.status(201).json(savedUser);
+        delete user.password;
+        return res.status(200).json(user);
       } catch (err) {
         return res.status(500).json({
-          error: err.message,
+          errors: [err.message],
         });
       }
     });
@@ -111,7 +145,8 @@ class UserController {
    */
   async updateToggleFriends(req, res) {
     try {
-      const { id, friendId } = req.params;
+      const id = req.userId; // from middleware loginRequired
+      const { friendId } = req.params;
       const user = await User.findById(id);
       const friend = await User.findById(friendId);
 
@@ -156,7 +191,9 @@ class UserController {
       );
       return res.status(200).json(formattedFriends);
     } catch (err) {
-      return res.status(404).json({ message: err.message });
+      return res.status(404).json({
+        errors: [err.message],
+      });
     }
   }
 }

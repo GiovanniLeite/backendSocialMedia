@@ -18,7 +18,9 @@ class PostController {
 
       return res.status(200).json(posts);
     } catch (err) {
-      return res.status(404).json({ message: err.message });
+      return res.status(404).json({
+        errors: [err.message],
+      });
     }
   }
 
@@ -35,7 +37,9 @@ class PostController {
 
       return res.status(200).json(posts);
     } catch (err) {
-      return res.status(404).json({ message: err.message });
+      return res.status(404).json({
+        errors: [err.message],
+      });
     }
   }
 
@@ -49,7 +53,9 @@ class PostController {
     return upload(req, res, async (err) => {
       // Check for and handle any errors that may occur during file upload
       if (err) {
-        return res.status(400).json({ message: err.message });
+        return res.status(400).json({
+          errors: [err.message],
+        });
       }
 
       try {
@@ -77,7 +83,9 @@ class PostController {
 
         return res.status(201).json(posts);
       } catch (err) {
-        return res.status(409).json({ message: err.message });
+        return res.status(409).json({
+          errors: [err.message],
+        });
       }
     });
   }
@@ -109,7 +117,9 @@ class PostController {
 
       return res.status(200).json(updatedPost);
     } catch (err) {
-      return res.status(404).json({ message: err.message });
+      return res.status(404).json({
+        errors: [err.message],
+      });
     }
   }
 }
