@@ -97,9 +97,16 @@ class UserController {
       const token = jwt.sign({ id: user._id }, process.env.TOKEN_SECRET, {
         expiresIn: process.env.TOKEN_EXPIRATION,
       });
-      delete user.password;
+      user.password = '';
       return res.status(201).json({ token, user });
     } catch (err) {
+      // If email already exists
+      if (err.code === 11000 && err.keyPattern && err.keyPattern.email) {
+        return res.status(409).json({
+          errors: ['Esse endereço de email já está em uso.'],
+        });
+      }
+
       return res.status(500).json({
         errors: [err.message],
       });
@@ -128,7 +135,7 @@ class UserController {
         user.picturePath = filename;
         await user.save();
 
-        delete user.password;
+        user.password = '';
         return res.status(200).json(user);
       } catch (err) {
         return res.status(500).json({
