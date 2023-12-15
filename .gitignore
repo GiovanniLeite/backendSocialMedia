@@ -1,6 +1,3 @@
 node_modules
-
-public/uploads/images/*
 src/data
-
 .env

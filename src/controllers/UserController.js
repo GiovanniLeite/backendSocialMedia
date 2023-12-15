@@ -1,11 +1,13 @@
-import multer from 'multer';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+import multer from 'multer';
 
 import multerConfig from '../config/multerConfig';
 import User from '../models/User';
+import generateAuthToken from '../util/generateAuthToken';
 
 const upload = multer(multerConfig).single('picture');
+
+const USER_NOT_FOUND_ERROR = 'Usuário não encontrado';
 
 class UserController {
   /**
@@ -16,10 +18,20 @@ class UserController {
   async show(req, res) {
     try {
       const { id } = req.params;
-      const user = await User.findById(id);
+      const user = await User.findById(id).select(
+        '_id firstName lastName email picturePath friends location occupation twitter linkedin viewedProfile impressions',
+      );
+
+      // If the user is not found
+      if (!user) {
+        return res.status(404).json({
+          errors: [USER_NOT_FOUND_ERROR],
+        });
+      }
+
       return res.status(200).json(user);
     } catch (err) {
-      return res.status(404).json({
+      return res.status(500).json({
         errors: [err.message],
       });
     }
@@ -28,31 +40,71 @@ class UserController {
   /**
    * Retrieve a list of friends for a specific User
    *
-   * @returns {Array} - An array of user's friends, which may be empty
+   * @returns {Array} - An array of user's friends, which may be empty []
    */
   async listUserFriends(req, res) {
     try {
       const { id } = req.params;
-      const user = await User.findById(id);
+      const loggedUserId = req.userId; // from middleware loginRequired
 
+      let user = null;
+      let loggedUser = null;
+
+      if (id === loggedUserId) {
+        user = await User.findById(id);
+      } else {
+        user = await User.findById(id);
+        loggedUser = await User.findById(loggedUserId);
+      }
+
+      // If the user is not found
+      if (!user) {
+        return res.status(404).json({
+          errors: [USER_NOT_FOUND_ERROR],
+        });
+      }
+
+      // If the user has no friends
+      if (!user.friends || user.friends.length === 0) {
+        return res.status(200).json([]);
+      }
+
+      // Retrieve friend's details in parallel using Promise.all
       const friends = await Promise.all(
-        user.friends.map((id) => User.findById(id)),
+        user.friends.map(async (friendId) => {
+          try {
+            // Find each friend by ID and select specific fields
+            const friend = await User.findById(friendId)
+              .select('_id firstName lastName picturePath location occupation')
+              .lean(); // Plain js object { _id, firstName... } whitout mongoose metadada
+
+            // is the friend a friend of the logged-in user?
+            let isFriend;
+
+            if (id === loggedUserId) {
+              isFriend = true;
+            } else if (!loggedUser.friends || loggedUser.friends.length === 0) {
+              isFriend = false;
+            } else {
+              isFriend = loggedUser.friends.includes(friendId);
+            }
+
+            return { ...friend, isFriend };
+          } catch (error) {
+            console.error(
+              `Error finding friend with ID ${friendId}: ${error.message}`,
+            );
+            return null;
+          }
+        }),
       );
-      const formattedFriends = friends.map(
-        ({ _id, firstName, lastName, occupation, location, picturePath }) => {
-          return {
-            _id,
-            firstName,
-            lastName,
-            occupation,
-            location,
-            picturePath,
-          };
-        },
-      );
-      return res.status(200).json(formattedFriends);
+
+      // Filter out null values (errors in finding specific friends)
+      const validFriends = friends.filter((friend) => friend !== null);
+
+      return res.status(200).json(validFriends);
     } catch (err) {
-      return res.status(404).json({
+      return res.status(500).json({
         errors: [err.message],
       });
     }
@@ -61,20 +113,14 @@ class UserController {
   /**
    * Create a new User
    *
-   * @returns {Object} - The created User and Token
+   * @returns {Object} - The created User and a Token (JWT)
    */
   async store(req, res) {
     try {
-      const {
-        firstName,
-        lastName,
-        email,
-        password,
-        friends,
-        location,
-        occupation,
-      } = req.body;
+      const { firstName, lastName, email, password, location, occupation } =
+        req.body;
 
+      // Generate a salt and hash the user's password
       const salt = await bcrypt.genSalt();
       const passwordHash = await bcrypt.hash(password, salt);
 
@@ -83,30 +129,27 @@ class UserController {
         lastName,
         email,
         password: passwordHash,
-        picturePath: '',
-        friends,
         location,
         occupation,
-        viewedProfile: 0,
-        impressions: 0,
       });
 
-      const user = await newUser.save(); // Create a new User
+      // Save the new User to the database
+      const user = await newUser.save();
+      user.password = '';
 
       // Create a new token for user authentication (login)
-      const token = jwt.sign({ id: user._id }, process.env.TOKEN_SECRET, {
-        expiresIn: process.env.TOKEN_EXPIRATION,
-      });
-      user.password = '';
+      const token = generateAuthToken(user);
+
       return res.status(201).json({ token, user });
     } catch (err) {
-      // If email already exists
+      // Check if email already exists (unique constraint violation)
       if (err.code === 11000 && err.keyPattern && err.keyPattern.email) {
         return res.status(409).json({
-          errors: ['Esse endereço de email já está em uso.'],
+          errors: ['Esse endereço de email já está em uso'],
         });
       }
 
+      // Handle other unexpected errors
       return res.status(500).json({
         errors: [err.message],
       });
@@ -130,7 +173,9 @@ class UserController {
 
       try {
         const { filename } = req.file;
-        const user = await User.findById(req.userId); // req.userId from middleware loginRequired
+        // Ensure that the current user can only edit their own profile
+        // req.userId from middleware loginRequired
+        const user = await User.findById(req.userId);
 
         user.picturePath = filename;
         await user.save();
@@ -147,56 +192,29 @@ class UserController {
 
   /**
    * Add or Remove a Friend from User's Friends List
-   *
-   * @returns {Array} - An array of user's friends, which may be empty
    */
-  async updateToggleFriends(req, res) {
+  async toggleFriend(req, res) {
     try {
-      const id = req.userId; // from middleware loginRequired
+      const { userId } = req; // from middleware loginRequired
       const { friendId } = req.params;
-      const user = await User.findById(id);
+      const user = await User.findById(userId);
       const friend = await User.findById(friendId);
 
+      // Check if the friendId is already in the user's friends list
       if (user.friends.includes(friendId)) {
-        // The friend already exists, so we remove them from both the user's array
-        // and the friend's array
-
-        // Copy the user's friends array, keeping only those with an ID different
-        // from the one sent in the request (friendId)
+        // Remove friend
         user.friends = user.friends.filter((id) => id !== friendId);
-
-        // Copy the friend's friends array, keeping only those with an ID different
-        // from the one sent in the request (id)
-        friend.friends = user.friends.filter((id) => id !== id);
+        friend.friends = friend.friends.filter((id) => id !== userId);
       } else {
-        // The friend doesn't exist, so we add them
-
-        // Add the friend's ID from the request to the user's friends array
+        // Add friend
         user.friends.push(friendId);
-
-        // Add the user's ID from the request to the friend's friends array
-        friend.friends.push(id);
+        friend.friends.push(userId);
       }
 
       await user.save();
       await friend.save();
 
-      const friends = await Promise.all(
-        user.friends.map((id) => User.findById(id)),
-      );
-      const formattedFriends = friends.map(
-        ({ _id, firstName, lastName, occupation, location, picturePath }) => {
-          return {
-            _id,
-            firstName,
-            lastName,
-            occupation,
-            location,
-            picturePath,
-          };
-        },
-      );
-      return res.status(200).json(formattedFriends);
+      return res.status(204).end();
     } catch (err) {
       return res.status(404).json({
         errors: [err.message],

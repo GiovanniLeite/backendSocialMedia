@@ -9,10 +9,9 @@ const router = express.Router();
 router.post('/', loginRequired, PostController.store);
 
 /* READ */
-router.get('/', loginRequired, PostController.index);
-router.get('/:userId/posts', loginRequired, PostController.indexByUser);
+router.get('/:userId', loginRequired, PostController.index);
 
 /* UPDATE - toggle like */
-router.patch('/:id/like', loginRequired, PostController.updateToggleLike);
+router.patch('/:id/like', loginRequired, PostController.toggleLike);
 
 export default router;

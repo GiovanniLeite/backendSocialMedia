@@ -1,4 +1,4 @@
-# Social Media (Back-end)
+# Social Media (Back-end) (Work in Progress)
 
 Front-end correspondente: https://github.com/GiovanniLeite/frontSocialMedia
 

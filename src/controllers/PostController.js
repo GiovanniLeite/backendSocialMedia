@@ -10,31 +10,14 @@ class PostController {
   /**
    * Retrieve a list of posts from the database
    *
-   * @returns {Array} - An array of posts, which may be empty
+   * @returns {Array} - An array of posts, which may be empty []
    */
   async index(req, res) {
     try {
-      const posts = await Post.find();
-
-      return res.status(200).json(posts);
-    } catch (err) {
-      return res.status(404).json({
-        errors: [err.message],
-      });
-    }
-  }
-
-  /**
-   * Retrieve a list of posts from the database
-   *
-   * @param {string} [userId] -  ID of the user for filtering posts by user
-   * @returns {Array} - An array of posts, which may be empty
-   */
-  async indexByUser(req, res) {
-    try {
       const { userId } = req.params;
-      const posts = await Post.find({ userId });
+      const query = userId ? { userId } : {};
 
+      const posts = await Post.find(query);
       return res.status(200).json(posts);
     } catch (err) {
       return res.status(404).json({
@@ -95,7 +78,7 @@ class PostController {
    *
    * @returns {Object} - The updated post object
    */
-  async updateToggleLike(req, res) {
+  async toggleLike(req, res) {
     try {
       const { id } = req.params;
       const { userId } = req.body;

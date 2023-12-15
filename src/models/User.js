@@ -45,8 +45,24 @@ const UserSchema = new mongoose.Schema(
       minlength: 3,
       maxlength: 50,
     },
-    viewedProfile: Number,
-    impressions: Number,
+    twitter: {
+      type: String,
+      default: '',
+      maxlength: 20,
+    },
+    linkedin: {
+      type: String,
+      default: '',
+      maxlength: 20,
+    },
+    viewedProfile: {
+      type: Number,
+      default: 0,
+    },
+    impressions: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true },
 );
