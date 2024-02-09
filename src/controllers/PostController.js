@@ -17,7 +17,8 @@ class PostController {
       const { userId } = req.params;
       const query = userId ? { userId } : {};
 
-      const posts = await Post.find(query);
+      const posts = await Post.find(query).sort({ createdAt: 'desc' });
+
       return res.status(200).json(posts);
     } catch (err) {
       return res.status(404).json({
@@ -42,8 +43,10 @@ class PostController {
       }
 
       try {
-        const { filename } = req.file;
-        const { userId, description } = req.body;
+        const { userId } = req; // from middleware loginRequired
+        const { description } = req.body;
+        const filename = req.file ? req.file.filename : '';
+
         const user = await User.findById(userId);
 
         // Create a new post object with user and file information
@@ -62,7 +65,7 @@ class PostController {
         await newPost.save();
 
         // Retrieve all posts from the database after creating the new post
-        const posts = await Post.find();
+        const posts = await Post.find().sort({ createdAt: 'desc' });
 
         return res.status(201).json(posts);
       } catch (err) {
@@ -80,10 +83,10 @@ class PostController {
    */
   async toggleLike(req, res) {
     try {
-      const { id } = req.params;
-      const { userId } = req.body;
+      const { postId } = req.params;
+      const { userId } = req; // from middleware loginRequired
 
-      const post = await Post.findById(id);
+      const post = await Post.findById(postId);
       const isLiked = post.likes.get(userId);
 
       if (isLiked) {
@@ -93,7 +96,7 @@ class PostController {
       }
 
       const updatedPost = await Post.findByIdAndUpdate(
-        id,
+        postId,
         { likes: post.likes },
         { new: true },
       );
