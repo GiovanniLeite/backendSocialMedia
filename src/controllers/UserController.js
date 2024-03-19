@@ -8,6 +8,7 @@ import generateAuthToken from '../util/generateAuthToken';
 const upload = multer(multerConfig).single('picture');
 
 const USER_NOT_FOUND_ERROR = 'Usuário não encontrado';
+const USERS_NOT_FOUND_ERROR = 'Usuário(s) não encontrado(s)';
 
 class UserController {
   /**
@@ -18,9 +19,11 @@ class UserController {
   async show(req, res) {
     try {
       const { id } = req.params;
-      const user = await User.findById(id).select(
-        '_id firstName lastName email picturePath friends location occupation twitter linkedin viewedProfile impressions',
-      );
+      const user = await User.findById(id)
+        .select(
+          '_id firstName lastName email picturePath friends location occupation twitter linkedin viewedProfile impressions',
+        )
+        .lean();
 
       // If the user is not found
       if (!user) {
@@ -28,6 +31,11 @@ class UserController {
           errors: [USER_NOT_FOUND_ERROR],
         });
       }
+
+      // req.userId from middleware loginRequired
+      const loggedUser = await User.findById(req.userId).select('friends');
+
+      user.isFriend = loggedUser.friends.includes(user._id);
 
       return res.status(200).json(user);
     } catch (err) {
@@ -40,7 +48,7 @@ class UserController {
   /**
    * Retrieve a list of friends for a specific User
    *
-   * @returns {Array} - An array of user's friends, which may be empty []
+   * @returns {Array} - An array of user's friends or []
    */
   async listUserFriends(req, res) {
     try {
@@ -199,6 +207,26 @@ class UserController {
       const { friendId } = req.params;
       const user = await User.findById(userId);
       const friend = await User.findById(friendId);
+
+      // If one of the users is not found
+      if (!user || !friend) {
+        return res.status(404).json({
+          errors: [USERS_NOT_FOUND_ERROR],
+        });
+      }
+
+      // If the limit of friends has been reached by one of the users
+      const maxFriendLimit = 30;
+      if (
+        user.friends.length >= maxFriendLimit ||
+        friend.friends.length >= maxFriendLimit
+      ) {
+        return res.status(403).json({
+          errors: [
+            'Você ou o outro usuário atingiram o número máximo de amigos',
+          ],
+        });
+      }
 
       // Check if the friendId is already in the user's friends list
       if (user.friends.includes(friendId)) {

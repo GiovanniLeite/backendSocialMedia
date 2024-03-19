@@ -6,11 +6,10 @@ import PostController from '../controllers/PostController';
 const router = express.Router();
 
 /* CREATE */
-router.post('/', loginRequired, PostController.store);
+router.post('/:page', loginRequired, PostController.store);
 
 /* READ */
-router.get('/all-posts', loginRequired, PostController.index);
-router.get('/user-posts/:userId', loginRequired, PostController.index);
+router.get('/:userId', loginRequired, PostController.index);
 
 /* UPDATE - toggle like */
 router.patch('/toggleLike/:postId', loginRequired, PostController.toggleLike);

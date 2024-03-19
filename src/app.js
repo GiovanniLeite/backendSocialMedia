@@ -49,7 +49,7 @@ class App {
     );
     this.app.use(morgan('common'));
     this.app.use(cors(corsOptions));
-    this.app.use(delay(2000));
+    // this.app.use(delay(2000));
 
     this.app.use(
       '/assets/',
