@@ -165,6 +165,72 @@ class UserController {
   }
 
   /**
+   * Update the User
+   *
+   * @returns {Object} - The User object
+   */
+  async update(req, res) {
+    try {
+      const {
+        firstName,
+        lastName,
+        email,
+        password,
+        location,
+        occupation,
+        linkedin,
+        twitter,
+      } = req.body;
+
+      // Ensure that the current user can only edit their own profile
+      // req.userId from middleware loginRequired
+      const user = await User.findById(req.userId).select(
+        '_id firstName lastName email picturePath friends location occupation twitter linkedin viewedProfile impressions',
+      );
+
+      if (!user) {
+        return res.status(404).json({
+          errors: ['Usuário não encontrado'],
+        });
+      }
+
+      // Verifies and updates user fields based on the provided field
+      switch (true) {
+        case !!(firstName && lastName && location && occupation):
+          Object.assign(user, {
+            firstName,
+            lastName,
+            location,
+            occupation,
+            twitter,
+            linkedin,
+          });
+          break;
+        case !!email:
+          user.email = email;
+          break;
+        case !!password:
+          user.password = password;
+          break;
+        default:
+          // If no field was provided for update
+          return res.status(400).json({
+            errors: ['Nenhum campo fornecido para atualização'],
+          });
+      }
+
+      await user.save();
+
+      user.password = '';
+      return res.status(200).json(user);
+    } catch (err) {
+      return res.status(500).json({
+        errors: [err.message],
+      });
+    }
+  }
+
+  /**
    * Update the User picture
    *
    * @returns {Object} - The User object

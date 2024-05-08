@@ -4,7 +4,9 @@ Front-end correspondente: https://github.com/GiovanniLeite/frontSocialMedia
 
 ## 📋 Apresentação
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque pretium odio enim. Donec eget massa velit. Integer fermentum est quis eleifend porttitor. Phasellus sed dictum magna. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Vestibulum feugiat finibus justo, feugiat pulvinar felis dignissim pharetra.
+Projeto de uma Rede Social inspirada no Facebook e Linkedin, conta com funções padrão como criação e edição de usuário, sistema de amizade e mensagens entre usuários, e possibilidade de publicação de posts com imagens, vídeos e outros arquivos, com a opção de curtidas e comentários.
+
+![Social Media](Capture.PNG)
 
 ## 🛠️ Construído com
 - JavaScript
