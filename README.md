@@ -1,14 +1,14 @@
 # Social Media (Back-end) (Work in Progress)
 
-Front-end correspondente: https://github.com/GiovanniLeite/frontSocialMedia
+Front-end corresponding: https://github.com/GiovanniLeite/frontSocialMedia
 
-## 📋 Apresentação
+## 📋 Presentation
 
-Projeto de uma Rede Social inspirada no Facebook e Linkedin, conta com funções padrão como criação e edição de usuário, sistema de amizade e mensagens entre usuários, e possibilidade de publicação de posts com imagens, vídeos e outros arquivos, com a opção de curtidas e comentários.
+The project consists of a Social Network inspired by Facebook and similar platforms. It includes standard features such as user profile creation and editing, a friend system, and messaging between users. Users can create posts containing text, images, and videos, with the option for interactions such as likes and comments. Additionally, the platform provides space for displaying ads and sponsored links.
 
 ![Social Media](Capture.PNG)
 
-## 🛠️ Construído com
+## 🛠️ Back-end built with
 - JavaScript
 - Node
 - Express
@@ -19,15 +19,15 @@ Projeto de uma Rede Social inspirada no Facebook e Linkedin, conta com funções
 - ESLint
 - Prettier
 
-## 🔧 Instalação
+## 🔧 Installation
 
-- Instalar dependências: `npm install`
+- Install dependencies: `npm install`
 
-- Configurar variáveis de ambiente: `cp .env.example .env`
+- Configure environment variables: `cp .env.example .env`
 
-- Iniciar aplicação em desenvolvimento: `npm run dev`
+- Start development application: `npm run dev`
 
-## 📫 Contato
+## 📫 Contact
 
 [![Portfolio](https://img.shields.io/badge/website-000000?style=for-the-badge&logo=About.me&logoColor=white)](https://www.giovannileite.com)
 [![Linkdin](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/giovanni-leite-dev/)

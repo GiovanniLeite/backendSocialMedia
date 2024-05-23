@@ -1,11 +1,7 @@
 import mongoose from 'mongoose';
-import multer from 'multer';
 
-import multerConfig from '../config/multerConfig';
 import User from '../models/User';
 import Post from '../models/Post';
-
-const upload = multer(multerConfig).single('picture');
 
 class PostController {
   /**
@@ -47,62 +43,52 @@ class PostController {
    *
    * @returns {Array} - An array of posts or []
    */
-  store(req, res) {
-    // Use the 'upload' middleware to handle file uploads asynchronously
-    return upload(req, res, async (err) => {
-      // Check for and handle any errors that may occur during file upload
-      if (err) {
-        return res.status(400).json({
-          errors: [err.message],
+  async store(req, res) {
+    try {
+      const { userId } = req; // from middleware loginRequired
+      const { page } = req.params;
+      const { description } = req.body;
+      const filename = req.files?.picture?.[0]?.filename ?? '';
+
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          errors: ['Usuário não encontrado'],
         });
       }
 
-      try {
-        const { userId } = req; // from middleware loginRequired
-        const { page } = req.params;
-        const { description } = req.body;
-        const filename = req.file ? req.file.filename : '';
+      // Create a new post object with user and file information
+      const newPost = new Post({
+        userId,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        location: user.location,
+        description,
+        userPicturePath: user.picturePath,
+        picturePath: filename,
+        likes: {},
+        comments: [],
+      });
 
-        const user = await User.findById(userId);
-        if (!user) {
-          return res.status(404).json({
-            errors: ['Usuário não encontrado'],
-          });
-        }
+      await newPost.save();
 
-        // Create a new post object with user and file information
-        const newPost = new Post({
-          userId,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          location: user.location,
-          description,
-          userPicturePath: user.picturePath,
-          picturePath: filename,
-          likes: {},
-          comments: [],
-        });
+      // Retrieves a list of posts either from the user only
+      // or from the user and their friends
+      const query =
+        page === 'profile'
+          ? { userId }
+          : { userId: { $in: [...user.friends, user._id] } };
+      const posts = await Post.find(query)
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .lean();
 
-        await newPost.save();
-
-        // Retrieves a list of posts either from the user only
-        // or from the user and their friends
-        const query =
-          page === 'profile'
-            ? { userId }
-            : { userId: { $in: [...user.friends, user._id] } };
-        const posts = await Post.find(query)
-          .sort({ createdAt: -1 })
-          .limit(50)
-          .lean();
-
-        return res.status(201).json(posts);
-      } catch (err) {
-        return res.status(409).json({
-          errors: [err.message],
-        });
-      }
-    });
+      return res.status(201).json(posts);
+    } catch (err) {
+      return res.status(409).json({
+        errors: [err.message],
+      });
+    }
   }
 
   /**

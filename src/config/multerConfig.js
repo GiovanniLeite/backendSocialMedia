@@ -4,7 +4,7 @@ import { extname, resolve } from 'path';
 // Returns a value between 10k and 20k
 const randomNumber = () => Math.floor(Math.random() * 10000 + 10000);
 
-export default {
+const createMulterConfig = (destinationFolder) => ({
   // Make sure the file is PNG or JPG
   fileFilter: (req, file, cb) => {
     if (file.mimetype !== 'image/png' && file.mimetype !== 'image/jpeg') {
@@ -17,11 +17,13 @@ export default {
     destination: (req, file, cb) => {
       cb(
         null,
-        resolve(__dirname, '..', '..', 'public', 'uploads', 'images', 'posts'),
+        resolve(__dirname, '..', '..', 'public', 'uploads', destinationFolder),
       );
     },
     filename: (req, file, cb) => {
       cb(null, `${Date.now()}_${randomNumber()}${extname(file.originalname)}`);
     },
   }),
-};
+});
+
+export default createMulterConfig;

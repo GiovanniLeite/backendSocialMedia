@@ -1,11 +1,6 @@
-import bcrypt from 'bcrypt';
-import multer from 'multer';
-
-import multerConfig from '../config/multerConfig';
 import User from '../models/User';
 import generateAuthToken from '../util/generateAuthToken';
-
-const upload = multer(multerConfig).single('picture');
+import generatePasswordHash from '../util/generatePasswordHash';
 
 const USER_NOT_FOUND_ERROR = 'Usuário não encontrado';
 const USERS_NOT_FOUND_ERROR = 'Usuário(s) não encontrado(s)';
@@ -21,7 +16,7 @@ class UserController {
       const { id } = req.params;
       const user = await User.findById(id)
         .select(
-          '_id firstName lastName email picturePath friends location occupation twitter linkedin viewedProfile impressions',
+          '_id firstName lastName email picturePath coverPath friends location occupation twitter linkedin viewedProfile impressions',
         )
         .lean();
 
@@ -128,9 +123,8 @@ class UserController {
       const { firstName, lastName, email, password, location, occupation } =
         req.body;
 
-      // Generate a salt and hash the user's password
-      const salt = await bcrypt.genSalt();
-      const passwordHash = await bcrypt.hash(password, salt);
+      // Generate a hash of the user's password;
+      const passwordHash = await generatePasswordHash(password);
 
       const newUser = new User({
         firstName,
@@ -185,12 +179,12 @@ class UserController {
       // Ensure that the current user can only edit their own profile
       // req.userId from middleware loginRequired
       const user = await User.findById(req.userId).select(
-        '_id firstName lastName email picturePath friends location occupation twitter linkedin viewedProfile impressions',
+        '_id firstName lastName email picturePath coverPath friends location occupation twitter linkedin viewedProfile impressions',
       );
 
       if (!user) {
         return res.status(404).json({
-          errors: ['Usuário não encontrado'],
+          errors: [USER_NOT_FOUND_ERROR],
         });
       }
 
@@ -210,7 +204,13 @@ class UserController {
           user.email = email;
           break;
         case !!password:
-          user.password = password;
+          user.password = await generatePasswordHash(password);
+          break;
+        case !!req.files?.picturePath:
+          user.picturePath = req.files.picturePath[0].filename;
+          break;
+        case !!req.files?.coverPath:
+          user.coverPath = req.files.coverPath[0].filename;
           break;
         default:
           // If no field was provided for update
@@ -224,44 +224,18 @@ class UserController {
       user.password = '';
       return res.status(200).json(user);
     } catch (err) {
+      // Check if email already exists (unique constraint violation)
+      if (err.code === 11000 && err.keyPattern && err.keyPattern.email) {
+        return res.status(409).json({
+          errors: ['Esse endereço de email já está em uso'],
+        });
+      }
+
+      // Handle other unexpected errors
       return res.status(500).json({
         errors: [err.message],
       });
     }
-  }
-
-  /**
-   * Update the User picture
-   *
-   * @returns {Object} - The User object
-   */
-  updatePicture(req, res) {
-    // Use the 'upload' middleware to handle file uploads asynchronously
-    return upload(req, res, async (err) => {
-      // Check for and handle any errors that may occur during file upload
-      if (err) {
-        return res.status(400).json({
-          errors: [err.message],
-        });
-      }
-
-      try {
-        const { filename } = req.file;
-        // Ensure that the current user can only edit their own profile
-        // req.userId from middleware loginRequired
-        const user = await User.findById(req.userId);
-
-        user.picturePath = filename;
-        await user.save();
-
-        user.password = '';
-        return res.status(200).json(user);
-      } catch (err) {
-        return res.status(500).json({
-          errors: [err.message],
-        });
-      }
-    });
   }
 
   /**
