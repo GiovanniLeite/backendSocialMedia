@@ -1,9 +1,13 @@
 import User from '../models/User';
 import generateAuthToken from '../util/generateAuthToken';
 import generatePasswordHash from '../util/generatePasswordHash';
-
-const USER_NOT_FOUND_ERROR = 'Usuário não encontrado';
-const USERS_NOT_FOUND_ERROR = 'Usuário(s) não encontrado(s)';
+import {
+  EMAIL_ALREADY_IN_USE_ERROR,
+  MAX_FRIENDS_REACHED_ERROR,
+  NO_FIELDS_PROVIDED_ERROR,
+  USERS_NOT_FOUND_ERROR,
+  USER_NOT_FOUND_ERROR,
+} from '../constants/apiErrorMessages';
 
 class UserController {
   /**
@@ -14,22 +18,31 @@ class UserController {
   async show(req, res) {
     try {
       const { id } = req.params;
+      const loggedUserId = req.userId;
+
+      // Retrieve the user being searched for
       const user = await User.findById(id)
         .select(
           '_id firstName lastName email picturePath coverPath friends location occupation twitter linkedin viewedProfile impressions',
         )
         .lean();
 
-      // If the user is not found
-      if (!user) {
+      // If the searched user is the same as the logged-in user
+      if (id === loggedUserId) {
+        return res.status(200).json(user);
+      }
+
+      // Retrieve the logged-in user
+      const loggedUser = await User.findById(loggedUserId).select('friends');
+
+      // If either user is not found
+      if (!user || !loggedUser) {
         return res.status(404).json({
-          errors: [USER_NOT_FOUND_ERROR],
+          errors: [USERS_NOT_FOUND_ERROR],
         });
       }
 
-      // req.userId from middleware loginRequired
-      const loggedUser = await User.findById(req.userId).select('friends');
-
+      // Check if the searched user is a friend of the logged-in user
       user.isFriend = loggedUser.friends.includes(user._id);
 
       return res.status(200).json(user);
@@ -94,9 +107,7 @@ class UserController {
 
             return { ...friend, isFriend };
           } catch (error) {
-            console.error(
-              `Error finding friend with ID ${friendId}: ${error.message}`,
-            );
+            console.error(`Error finding friend with ID ${friendId}: ${error.message}`);
             return null;
           }
         }),
@@ -120,8 +131,7 @@ class UserController {
    */
   async store(req, res) {
     try {
-      const { firstName, lastName, email, password, location, occupation } =
-        req.body;
+      const { firstName, lastName, email, password, location, occupation } = req.body;
 
       // Generate a hash of the user's password;
       const passwordHash = await generatePasswordHash(password);
@@ -147,7 +157,7 @@ class UserController {
       // Check if email already exists (unique constraint violation)
       if (err.code === 11000 && err.keyPattern && err.keyPattern.email) {
         return res.status(409).json({
-          errors: ['Esse endereço de email já está em uso'],
+          errors: [EMAIL_ALREADY_IN_USE_ERROR],
         });
       }
 
@@ -165,16 +175,7 @@ class UserController {
    */
   async update(req, res) {
     try {
-      const {
-        firstName,
-        lastName,
-        email,
-        password,
-        location,
-        occupation,
-        linkedin,
-        twitter,
-      } = req.body;
+      const { firstName, lastName, email, password, location, occupation, linkedin, twitter } = req.body;
 
       // Ensure that the current user can only edit their own profile
       // req.userId from middleware loginRequired
@@ -215,7 +216,7 @@ class UserController {
         default:
           // If no field was provided for update
           return res.status(400).json({
-            errors: ['Nenhum campo fornecido para atualização'],
+            errors: [NO_FIELDS_PROVIDED_ERROR],
           });
       }
 
@@ -227,7 +228,7 @@ class UserController {
       // Check if email already exists (unique constraint violation)
       if (err.code === 11000 && err.keyPattern && err.keyPattern.email) {
         return res.status(409).json({
-          errors: ['Esse endereço de email já está em uso'],
+          errors: [EMAIL_ALREADY_IN_USE_ERROR],
         });
       }
 
@@ -257,14 +258,9 @@ class UserController {
 
       // If the limit of friends has been reached by one of the users
       const maxFriendLimit = 30;
-      if (
-        user.friends.length >= maxFriendLimit ||
-        friend.friends.length >= maxFriendLimit
-      ) {
+      if (user.friends.length >= maxFriendLimit || friend.friends.length >= maxFriendLimit) {
         return res.status(403).json({
-          errors: [
-            'Você ou o outro usuário atingiram o número máximo de amigos',
-          ],
+          errors: [MAX_FRIENDS_REACHED_ERROR],
         });
       }
 
@@ -284,7 +280,7 @@ class UserController {
 
       return res.status(204).end();
     } catch (err) {
-      return res.status(404).json({
+      return res.status(500).json({
         errors: [err.message],
       });
     }

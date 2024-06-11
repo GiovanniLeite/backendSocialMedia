@@ -15,10 +15,6 @@ router.get('/:id/friends', loginRequired, UserController.listUserFriends);
 
 /* UPDATE */
 router.patch('/update', loginRequired, userUpload, UserController.update); // update atributes
-router.patch(
-  '/update-friend/:friendId',
-  loginRequired,
-  UserController.toggleFriend,
-); // toggle friends
+router.patch('/update-friend/:friendId', loginRequired, UserController.toggleFriend); // toggle friends
 
 export default router;

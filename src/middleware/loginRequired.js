@@ -1,12 +1,14 @@
 import jwt from 'jsonwebtoken';
 
+import { INVALID_TOKEN_ERROR, LOGIN_REQUIRED_ERROR } from '../constants/apiErrorMessages';
+
 const loginRequired = async (req, res, next) => {
   try {
     let token = req.header('Authorization');
 
     if (!token || typeof token !== 'string') {
       return res.status(401).json({
-        errors: ['É necessário fazer login'],
+        errors: [LOGIN_REQUIRED_ERROR],
       });
     }
 
@@ -15,13 +17,12 @@ const loginRequired = async (req, res, next) => {
     }
 
     const verifiedUser = jwt.verify(token, process.env.TOKEN_SECRET);
-    const { id } = verifiedUser;
-    req.userId = id;
+    req.userId = verifiedUser.id;
 
     next();
   } catch (err) {
     res.status(401).json({
-      errors: ['Token expirado ou inválido, deslogue e logue novamente'],
+      errors: [INVALID_TOKEN_ERROR],
     });
   }
 };

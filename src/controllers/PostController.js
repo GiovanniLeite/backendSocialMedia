@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 
 import User from '../models/User';
 import Post from '../models/Post';
+import { POST_NOT_FOUND_ERROR, USER_NOT_FOUND_ERROR } from '../constants/apiErrorMessages';
 
 class PostController {
   /**
@@ -21,6 +22,11 @@ class PostController {
         // If userId is not provided, retrieve posts from the friends
         // and of the logged-in user
         const loggedUser = await User.findById(req.userId); // req.userId from middleware loginRequired
+        if (!loggedUser) {
+          return res.status(404).json({
+            errors: [USER_NOT_FOUND_ERROR],
+          });
+        }
 
         posts = await Post.find({
           userId: { $in: [...loggedUser.friends, loggedUser._id] },
@@ -32,7 +38,7 @@ class PostController {
 
       return res.status(200).json(posts);
     } catch (err) {
-      return res.status(404).json({
+      return res.status(500).json({
         errors: [err.message],
       });
     }
@@ -41,7 +47,7 @@ class PostController {
   /**
    * Create a new post
    *
-   * @returns {Array} - An array of posts or []
+   * @returns {Array} - An array of posts
    */
   async store(req, res) {
     try {
@@ -53,7 +59,7 @@ class PostController {
       const user = await User.findById(userId);
       if (!user) {
         return res.status(404).json({
-          errors: ['Usuário não encontrado'],
+          errors: [USER_NOT_FOUND_ERROR],
         });
       }
 
@@ -74,18 +80,12 @@ class PostController {
 
       // Retrieves a list of posts either from the user only
       // or from the user and their friends
-      const query =
-        page === 'profile'
-          ? { userId }
-          : { userId: { $in: [...user.friends, user._id] } };
-      const posts = await Post.find(query)
-        .sort({ createdAt: -1 })
-        .limit(50)
-        .lean();
+      const query = page === 'profile' ? { userId } : { userId: { $in: [...user.friends, user._id] } };
+      const posts = await Post.find(query).sort({ createdAt: -1 }).limit(50).lean();
 
       return res.status(201).json(posts);
     } catch (err) {
-      return res.status(409).json({
+      return res.status(500).json({
         errors: [err.message],
       });
     }
@@ -102,23 +102,24 @@ class PostController {
       const { userId } = req; // from middleware loginRequired
 
       const post = await Post.findById(postId);
-      const isLiked = post.likes.get(userId);
+      if (!post) {
+        return res.status(404).json({
+          errors: [POST_NOT_FOUND_ERROR],
+        });
+      }
 
+      const isLiked = post.likes.get(userId);
       if (isLiked) {
         post.likes.delete(userId);
       } else {
         post.likes.set(userId, true);
       }
 
-      const updatedPost = await Post.findByIdAndUpdate(
-        postId,
-        { likes: post.likes },
-        { new: true },
-      );
+      const updatedPost = await post.save();
 
       return res.status(200).json(updatedPost);
     } catch (err) {
-      return res.status(404).json({
+      return res.status(500).json({
         errors: [err.message],
       });
     }

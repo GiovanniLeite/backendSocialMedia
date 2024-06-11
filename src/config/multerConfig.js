@@ -15,10 +15,7 @@ const createMulterConfig = (destinationFolder) => ({
   // Upload the image
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
-      cb(
-        null,
-        resolve(__dirname, '..', '..', 'public', 'uploads', destinationFolder),
-      );
+      cb(null, resolve(__dirname, '..', '..', 'public', 'uploads', destinationFolder));
     },
     filename: (req, file, cb) => {
       cb(null, `${Date.now()}_${randomNumber()}${extname(file.originalname)}`);

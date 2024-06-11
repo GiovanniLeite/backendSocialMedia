@@ -1,5 +1,10 @@
 import bcrypt from 'bcrypt';
 
+import {
+  INVALID_CREDENTIALS_ERROR,
+  INVALID_EMAIL_OR_USER_NOT_EXIST_ERROR,
+  INVALID_PASSWORD_ERROR,
+} from '../constants/apiErrorMessages';
 import User from '../models/User';
 import generateAuthToken from '../util/generateAuthToken';
 
@@ -14,19 +19,19 @@ class TokenController {
       const { email = '', password = '' } = req.body;
 
       if (!email || !password) {
-        return res.status(401).json({ errors: ['Credenciais inválidas'] });
+        return res.status(401).json({ errors: [INVALID_CREDENTIALS_ERROR] });
       }
 
       const user = await User.findOne({ email: email });
       if (!user) {
         return res.status(400).json({
-          errors: ['Email inválido ou Usuário não existe'],
+          errors: [INVALID_EMAIL_OR_USER_NOT_EXIST_ERROR],
         });
       }
 
       // Compare the provided password with the hashed password stored in the database
       const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) return res.status(400).json({ errors: ['Senha inválida'] });
+      if (!isMatch) return res.status(400).json({ errors: [INVALID_PASSWORD_ERROR] });
 
       // Create a new token for user authentication
       const token = generateAuthToken(user);
